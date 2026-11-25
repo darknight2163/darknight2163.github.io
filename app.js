@@ -51,7 +51,7 @@ async function renderPage(page, sheet, token) {
   const cssWidth = sheet.clientWidth;
   const base = page.getViewport({ scale: 1 });
   const cssScale = cssWidth / base.width;
-  const outScale = Math.min(Math.max(window.devicePixelRatio || 1, 2), 3);
+  const outScale = Math.min(window.devicePixelRatio || 1, 2);
 
   const canvas = document.createElement('canvas');
   const viewport = page.getViewport({ scale: cssScale * outScale });
@@ -138,12 +138,21 @@ async function init() {
 }
 
 // Glass highlight that follows the cursor over the resume sheet (purely cosmetic).
+let highlightFrame = 0;
+let highlightEvent;
 sheetsEl.addEventListener('pointermove', (e) => {
   const sheet = e.target.closest && e.target.closest('.sheet');
   if (!sheet) return;
-  const r = sheet.getBoundingClientRect();
-  sheet.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100).toFixed(1) + '%');
-  sheet.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100).toFixed(1) + '%');
+  highlightEvent = { sheet, x: e.clientX, y: e.clientY };
+  if (highlightFrame) return;
+  highlightFrame = requestAnimationFrame(() => {
+    highlightFrame = 0;
+    const { sheet: target, x, y } = highlightEvent;
+    if (!target.isConnected) return;
+    const r = target.getBoundingClientRect();
+    target.style.setProperty('--mx', ((x - r.left) / r.width * 100).toFixed(1) + '%');
+    target.style.setProperty('--my', ((y - r.top) / r.height * 100).toFixed(1) + '%');
+  });
 });
 
 // Typewriter for the profile summary and the footer quote.
@@ -179,17 +188,23 @@ function setupTypewriterAnimations() {
     wrap.classList.add('tw-ready');
 
     function run() {
-      let n = 0;
-      (function step() {
-        n++;
-        let left = n;
-        for (const x of parts) {
-          x.node.data = x.text.slice(0, Math.max(0, Math.min(left, x.text.length)));
-          left -= x.text.length;
+      const start = performance.now();
+      let lastCount = -1;
+      function step(now) {
+        const count = Math.min(total, Math.floor((now - start) * opts.charactersPerSecond / 1000));
+        if (count !== lastCount) {
+          let left = count;
+          for (const x of parts) {
+            const visible = Math.max(0, Math.min(left, x.text.length));
+            x.node.data = x.text.slice(0, visible);
+            left -= x.text.length;
+          }
+          lastCount = count;
         }
-        if (n < total) setTimeout(step, opts.min + Math.random() * (opts.max - opts.min));
+        if (count < total) requestAnimationFrame(step);
         else wrap.classList.add('tw-done');
-      })();
+      }
+      requestAnimationFrame(step);
     }
 
     const io = new IntersectionObserver((entries) => {
@@ -200,8 +215,8 @@ function setupTypewriterAnimations() {
     io.observe(wrap);
   }
 
-  typewriter(document.querySelector('.summary p'), { min: 8,  max: 20, delay: 350, threshold: 0.5 });
-  typewriter(document.querySelector('.quote p'),   { min: 16, max: 38, delay: 250, threshold: 0.6 });
+  typewriter(document.querySelector('.summary p'), { charactersPerSecond: 180, delay: 200, threshold: 0.5 });
+  typewriter(document.querySelector('.quote p'),   { charactersPerSecond: 180, delay: 150, threshold: 0.6 });
 }
 
 async function initPage() {
