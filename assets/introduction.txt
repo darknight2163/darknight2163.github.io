@@ -1,0 +1,1 @@
+**Gen AI Engineer** with over 2 years of experience engineering end-to-end AI products, agentic systems, and hybrid RAG solutions. At **Merkle (Dentsu)**, Bengaluru, I work across LLM orchestration, multi-agent architectures, and knowledge retrieval using Google ADK, LangChain, Neo4j, and Pinecone, with deployment experience across AWS and GCP.
